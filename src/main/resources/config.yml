@@ -1,0 +1,33 @@
+# ElementalSMP configuration
+# Edit these values, then run /reload or restart the server to apply them.
+
+chambers:
+  # How often (in minutes) a new Elemental Chamber rolls somewhere in the world.
+  reroll-interval-minutes: 60
+  # How far from spawn (in blocks, both +/- on X and Z) a chamber can spawn.
+  # Shrunk from the original 5000 so chambers are actually findable within a reasonable walk/ride.
+  world-bound: 1500
+  # Chance (0.0-1.0) that a rolled chamber is an Elite chamber (tougher, better loot).
+  elite-chance: 0.25
+  # Mob kills required to clear a normal / Elite chamber.
+  kills-required-normal: 12
+  kills-required-elite: 20
+  # Chance (0.0-1.0) that clearing a chamber's chest includes a Storm Core or Void Tear.
+  awakening-drop-chance-normal: 0.08
+  awakening-drop-chance-elite: 0.20
+
+mastery:
+  # XP required to go from level N to N+1 is: xp-base-per-level + (N * xp-scaling-per-level)
+  xp-base-per-level: 50
+  xp-scaling-per-level: 15
+
+cooldowns:
+  # Ability cooldowns in seconds, per tier.
+  basic-seconds: 3
+  mobility-seconds: 8
+  heavy-seconds: 15
+  ultimate-seconds: 30
+
+sleep:
+  # Bonus Mastery XP awarded to whoever slept through the night when the server skips it.
+  bonus-xp: 50

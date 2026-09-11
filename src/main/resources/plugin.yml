@@ -1,0 +1,24 @@
+name: ElementalSMP
+version: ${project.version}
+main: com.bloxelemental.elemental.ElementalSMP
+api-version: '1.21'
+author: BloxElementalTeam
+description: Blox Fruits inspired elemental mastery and awakening system for Paper SMPs.
+
+commands:
+  element:
+    description: Open the starter element selection GUI or view your abilities.
+    usage: /element <gui|abilities>
+  elemental:
+    description: Admin management for the elemental system.
+    usage: /elemental <inspect|setlevel|setelement|giveitem|announce|locate|reroll>
+    permission: elemental.admin
+    permission-message: You do not have permission to use elemental admin commands.
+
+permissions:
+  elemental.admin:
+    description: Allows use of all /elemental admin subcommands.
+    default: op
+  elemental.use:
+    description: Allows use of elemental abilities and the element selection GUI.
+    default: true

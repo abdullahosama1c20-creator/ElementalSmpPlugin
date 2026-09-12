@@ -36,6 +36,7 @@ public class PassiveManager {
             if (element != null) {
                 PassiveInfo.applyBuffs(player, element);
                 applySetBonus(player, element);
+                LevelStats.apply(plugin, player);
             }
         }
     }

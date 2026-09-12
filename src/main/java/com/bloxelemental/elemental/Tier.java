@@ -10,8 +10,11 @@ public enum Tier {
     HEAVY(MasteryManager.HEAVY_THRESHOLD, 15, "Heavy Combat Skill"),
     ULTIMATE(MasteryManager.ULTIMATE_THRESHOLD, 30, "Ultimate Skill");
 
+    /** Cooldown decreases from cooldownSeconds*startingMultiplier at level 1 down to cooldownSeconds at level 100. */
+    static double startingMultiplier = 1.5D;
+
     final int requiredLevel;
-    int cooldownSeconds; // not final - overridable at startup from config.yml's cooldowns section
+    int cooldownSeconds; // the LEVEL-100 (minimum) cooldown - not final, overridable from config.yml's cooldowns section
     final String label;
 
     Tier(int requiredLevel, int cooldownSeconds, String label) {
@@ -31,5 +34,20 @@ public enum Tier {
                 tier.cooldownSeconds = cooldowns.getInt(key);
             }
         }
+        if (cooldowns.isDouble("starting-multiplier") || cooldowns.isInt("starting-multiplier")) {
+            startingMultiplier = cooldowns.getDouble("starting-multiplier", 1.5D);
+        }
+    }
+
+    /**
+     * The actual cooldown for a player at the given Mastery level: highest at
+     * level 1 (cooldownSeconds * startingMultiplier), linearly decreasing down
+     * to the flat cooldownSeconds value by level 100.
+     */
+    public double cooldownSecondsForLevel(int level) {
+        int clamped = Math.max(1, Math.min(MasteryManager.MAX_LEVEL, level));
+        double progress = (clamped - 1) / (double) (MasteryManager.MAX_LEVEL - 1); // 0 at lvl1, 1 at lvl100
+        double startValue = cooldownSeconds * startingMultiplier;
+        return startValue - (startValue - cooldownSeconds) * progress;
     }
 }

@@ -3,14 +3,15 @@ package com.bloxelemental.elemental;
 /**
  * A six-way counter cycle: each element deals bonus damage to the next one
  * in the ring, and takes a penalty against the one before it. Order:
- * Fire -> Earth -> Lightning -> Water -> Air -> Void -> (back to Fire).
- * Fire beats Earth, Earth beats Lightning, Lightning beats Water,
- * Water beats Air, Air beats Void, Void beats Fire.
+ * Water -> Fire -> Earth -> Air -> Void -> Lightning -> (back to Water).
+ * Water beats Fire (extinguishes it), Fire beats Earth (scorches it),
+ * Earth beats Air (grounds/blocks it), Air beats Void (disperses it),
+ * Void beats Lightning (absorbs it), Lightning beats Water (conducts through it).
  */
 public final class ElementalCounters {
 
     private static final Element[] CYCLE = {
-            Element.FIRE, Element.EARTH, Element.LIGHTNING, Element.WATER, Element.AIR, Element.VOID
+            Element.WATER, Element.FIRE, Element.EARTH, Element.AIR, Element.VOID, Element.LIGHTNING
     };
 
     private static final double ADVANTAGE_MULTIPLIER = 1.25D;
@@ -52,6 +53,6 @@ public final class ElementalCounters {
     }
 
     public static String describeCycle() {
-        return "Fire > Earth > Lightning > Water > Air > Void > Fire";
+        return "Water > Fire > Earth > Air > Void > Lightning > Water";
     }
 }

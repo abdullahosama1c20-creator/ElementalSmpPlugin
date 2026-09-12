@@ -191,6 +191,7 @@ public class AbilityListener implements Listener {
         player.getInventory().addItem(catalystItem(plugin, target));
         player.getInventory().addItem(ArmorSets.armorPieces(plugin, target));
         PassiveInfo.applyBuffs(player, target);
+        LevelStats.apply(plugin, player);
 
         player.getWorld().spawnParticle(Particle.END_ROD, player.getLocation().add(0, 1, 0), 120, 1, 1.5, 1, 0.05);
         player.playSound(player.getLocation(), Sound.ENTITY_ENDER_DRAGON_GROWL, 1.0F, target == Element.VOID ? 0.5F : 1.5F);
@@ -267,7 +268,8 @@ public class AbilityListener implements Listener {
         }
 
         castAbility(player, element, tier);
-        long cooldownEnd = now + (tier.cooldownSeconds * 1000L);
+        double cooldownSeconds = tier.cooldownSecondsForLevel(manager.getLevel(uuid));
+        long cooldownEnd = now + (long) (cooldownSeconds * 1000L);
         playerCooldowns.put(cooldownKey, cooldownEnd);
         startCooldownCountdown(player, tier.label, cooldownEnd);
     }

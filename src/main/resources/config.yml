@@ -20,13 +20,22 @@ mastery:
   # XP required to go from level N to N+1 is: xp-base-per-level + (N * xp-scaling-per-level)
   xp-base-per-level: 50
   xp-scaling-per-level: 15
+  # Permanent stat bonuses per level of your ACTIVE element (switching elements changes
+  # your stats to match that element's own level). At level 100 with the defaults below,
+  # that's +10 max health (5 hearts) and +2 attack damage.
+  health-per-level: 0.1
+  damage-per-level: 0.02
 
 cooldowns:
-  # Ability cooldowns in seconds, per tier.
+  # Ability cooldowns in seconds, per tier - these are now the LEVEL 100 (minimum) values.
   basic-seconds: 3
   mobility-seconds: 8
   heavy-seconds: 15
   ultimate-seconds: 30
+  # At level 1, cooldowns are this many times longer than the values above, then decrease
+  # linearly down to the flat value by level 100. E.g. 1.5 means Basic starts at 4.5s and
+  # eases down to 3s as you level up.
+  starting-multiplier: 1.5
 
 sleep:
   # Bonus Mastery XP awarded to whoever slept through the night when the server skips it.

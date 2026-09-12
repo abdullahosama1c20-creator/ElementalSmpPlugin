@@ -53,7 +53,14 @@ public final class ArmorSets {
         if (item.getItemMeta() instanceof LeatherArmorMeta meta) {
             meta.setColor(colorFor(element));
             meta.displayName(Component.text(element.displayName() + " Gear", element.color(), TextDecoration.BOLD));
-            meta.lore(List.of(Component.text("Wear the full set for a bonus.", NamedTextColor.GRAY)));
+            List<Component> lore = new java.util.ArrayList<>();
+            lore.add(Component.text("Wear the full set for a bonus.", NamedTextColor.GRAY));
+            if (element == Element.WATER && material == Material.LEATHER_HELMET) {
+                meta.addEnchant(org.bukkit.enchantments.Enchantment.AQUA_AFFINITY, 1, true);
+                meta.addItemFlags(org.bukkit.inventory.ItemFlag.HIDE_ENCHANTS);
+                lore.add(Component.text("Mines at normal speed underwater.", NamedTextColor.AQUA));
+            }
+            meta.lore(lore);
             meta.getPersistentDataContainer().set(key(plugin), PersistentDataType.STRING, element.name());
             item.setItemMeta(meta);
         }

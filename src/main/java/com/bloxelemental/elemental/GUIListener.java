@@ -174,11 +174,14 @@ public class GUIListener implements Listener {
         ItemStack item = new ItemStack(material);
         ItemMeta meta = item.getItemMeta();
         meta.displayName(Component.text((unlocked ? "" : "[LOCKED] ") + tier.label, unlocked ? element.color() : NamedTextColor.DARK_GRAY, TextDecoration.BOLD));
+        String cooldownLine = unlocked
+                ? String.format("Requires Lv.%d | %.1fs cooldown at your level", tier.requiredLevel, tier.cooldownSecondsForLevel(level))
+                : String.format("Requires Lv.%d | %.1fs to %.1fs cooldown", tier.requiredLevel, tier.cooldownSeconds, tier.cooldownSeconds * Tier.startingMultiplier);
         meta.lore(List.of(
                 Component.text(AbilityInfo.describe(element, tier), unlocked ? NamedTextColor.GRAY : NamedTextColor.DARK_GRAY),
                 Component.text(""),
-                Component.text("Requires Lv." + tier.requiredLevel + " | " + tier.cooldownSeconds + "s cooldown",
-                        unlocked ? NamedTextColor.GREEN : NamedTextColor.RED)
+                Component.text(cooldownLine, unlocked ? NamedTextColor.GREEN : NamedTextColor.RED),
+                Component.text("Cooldown shortens as you level up.", NamedTextColor.DARK_GRAY)
         ));
         item.setItemMeta(meta);
         return item;
@@ -225,6 +228,7 @@ public class GUIListener implements Listener {
             }
             manager.switchActiveElement(uuid, clicked);
             PassiveInfo.applyBuffs(player, clicked);
+            LevelStats.apply(plugin, player);
             player.closeInventory();
             player.playSound(player.getLocation(), Sound.ITEM_ARMOR_EQUIP_GENERIC, 1.0F, 1.2F);
             player.sendMessage(Component.text("Switched your active element to ", NamedTextColor.GREEN)
@@ -252,6 +256,7 @@ public class GUIListener implements Listener {
         player.getInventory().addItem(AbilityListener.catalystItem(plugin, clicked));
         player.getInventory().addItem(ArmorSets.armorPieces(plugin, clicked));
         PassiveInfo.applyBuffs(player, clicked);
+        LevelStats.apply(plugin, player);
         player.closeInventory();
         player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0F, 1.2F);
         player.sendMessage(Component.text("You have bound yourself to the element of ", NamedTextColor.GREEN)

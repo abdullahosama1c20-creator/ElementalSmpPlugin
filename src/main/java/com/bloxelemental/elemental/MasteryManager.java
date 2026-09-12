@@ -238,6 +238,7 @@ public class MasteryManager {
         Player player = Bukkit.getPlayer(uuid);
         if (player != null && player.isOnline()) {
             announceAbilities(player, clamped);
+            LevelStats.apply(plugin, player);
         }
     }
 
@@ -297,6 +298,7 @@ public class MasteryManager {
             player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0F, 1.0F);
             player.sendMessage(Component.text("Your Mastery has grown! Level " + level, NamedTextColor.GOLD, TextDecoration.BOLD));
             announceAbilities(player, level);
+            LevelStats.apply(plugin, player);
         }
     }
 

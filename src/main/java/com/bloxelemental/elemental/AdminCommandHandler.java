@@ -238,6 +238,7 @@ public class AdminCommandHandler implements CommandExecutor, TabCompleter {
             target.getInventory().addItem(ArmorSets.armorPieces(plugin, element));
         }
         PassiveInfo.applyBuffs(target, element);
+        LevelStats.apply(plugin, target);
 
         sender.sendMessage(Component.text("Set " + target.getName() + "'s active element to ", NamedTextColor.GREEN)
                 .append(Component.text(element.displayName(), element.color())));

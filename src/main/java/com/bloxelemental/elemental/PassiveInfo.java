@@ -26,8 +26,8 @@ public final class PassiveInfo {
     public static String describe(Element element) {
         return switch (element) {
             case FIRE -> "Thermal Adaptation: immune to fire/lava. Meleeing a burning enemy heals half a heart (2s cooldown).";
-            case WATER -> "Aquatic Swiftness: permanent Dolphin's Grace + Water Breathing. +10% melee damage while touching water or rain.";
-            case AIR -> "Lightfoot: permanent Speed I and 50% less fall damage.";
+            case WATER -> "Aquatic Swiftness: permanent Dolphin's Grace + Water Breathing. +10% melee damage while touching water or rain. Mines faster underwater (Aqua Affinity + Haste while submerged).";
+            case AIR -> "Lightfoot: no passive effect currently (fall damage and Speed were both removed on request). Let me know if you'd like a replacement.";
             case EARTH -> "Earthen Armor: 15% less knockback always, plus Resistance I for 3s whenever you stand still for 2+ seconds.";
             case LIGHTNING -> "Static Charge: permanent Speed I, immune to lightning strikes. Melee hits have a chance to briefly stun.";
             case VOID -> "Umbral Step: permanent Night Vision + Slow Falling. Melee hits have a chance to briefly blind.";
@@ -41,8 +41,13 @@ public final class PassiveInfo {
             case WATER -> {
                 player.addPotionEffect(new PotionEffect(PotionEffectType.WATER_BREATHING, refreshTicks, 0, true, false));
                 player.addPotionEffect(new PotionEffect(PotionEffectType.DOLPHINS_GRACE, refreshTicks, 0, true, false));
+                // Faster mining while submerged - on top of the Aqua Affinity enchant on their
+                // helmet (see ArmorSets) which already cancels vanilla's underwater mining penalty.
+                boolean submerged = player.getEyeLocation().getBlock().getType() == org.bukkit.Material.WATER;
+                if (submerged) {
+                    player.addPotionEffect(new PotionEffect(PotionEffectType.HASTE, refreshTicks, 0, true, false));
+                }
             }
-            case AIR -> player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, refreshTicks, 0, true, false));
             case LIGHTNING -> player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, refreshTicks, 0, true, false));
             case VOID -> {
                 player.addPotionEffect(new PotionEffect(PotionEffectType.NIGHT_VISION, refreshTicks, 0, true, false));
@@ -50,6 +55,7 @@ public final class PassiveInfo {
             }
             default -> {
                 // FIRE has no permanent potion buff - its passive is purely event-driven.
+                // AIR currently has no passive potion buff either (removed on request).
             }
         }
 

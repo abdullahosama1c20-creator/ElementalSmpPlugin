@@ -30,15 +30,20 @@ mastery:
   fusion-damage-multiplier: 1.2
 
 cooldowns:
-  # Ability cooldowns in seconds, per tier - these are now the LEVEL 100 (minimum) values.
+  # Ability cooldowns in seconds, per tier - these are the FLOOR (minimum) values, reached
+  # at or before level 100 and never going lower.
   basic-seconds: 3
   mobility-seconds: 8
   heavy-seconds: 15
   ultimate-seconds: 30
-  # At level 1, cooldowns are this many times longer than the values above, then decrease
-  # linearly down to the flat value by level 100. E.g. 1.5 means Basic starts at 4.5s and
-  # eases down to 3s as you level up.
+  # At level 1, cooldowns are this many times longer than the floor values above.
+  # E.g. 1.5 means Basic starts at 4.5s.
   starting-multiplier: 1.5
+  # How much each level shaves off, as a fraction of the tier's floor value. 0.0333 means
+  # Basic (3s floor) drops ~0.1s per level, i.e. -0.3s every 3 levels, reaching its 3s floor
+  # by around level 15 and staying there - NOT a slow crawl all the way to level 100.
+  # Bigger-cooldown tiers drop proportionally faster in raw seconds since they have more room.
+  decrease-fraction-per-level: 0.0333
 
 sleep:
   # Bonus Mastery XP awarded to whoever slept through the night when the server skips it.

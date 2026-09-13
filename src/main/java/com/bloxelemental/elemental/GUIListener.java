@@ -286,14 +286,14 @@ public class GUIListener implements Listener {
         if (starterClicked != null && starterClicked == active && PassiveInfo.hasToggleableBuff(starterClicked)) {
             boolean nowEnabled = manager.togglePassive(uuid, starterClicked);
             applyToggleFeedback(player, starterClicked, nowEnabled);
-            openElementGUI(plugin, player);
+            Bukkit.getScheduler().runTask(plugin, () -> openElementGUI(plugin, player));
             return;
         }
 
         if (advancedClicked != null && active != null && advancedClicked == manager.getFusion(uuid, active)) {
             boolean nowEnabled = manager.togglePassive(uuid, advancedClicked);
             applyToggleFeedback(player, advancedClicked, nowEnabled);
-            openElementGUI(plugin, player);
+            Bukkit.getScheduler().runTask(plugin, () -> openElementGUI(plugin, player));
         }
     }
 

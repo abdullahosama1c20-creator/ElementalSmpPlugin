@@ -85,6 +85,63 @@ public class ChamberListener implements Listener {
         }
     }
 
+    /** Chamber Creepers still hurt you, but never touch the chamber's own terrain. */
+    @EventHandler
+    public void onExplode(org.bukkit.event.entity.EntityExplodeEvent event) {
+        Boolean isChamberMob = event.getEntity().getPersistentDataContainer().get(chamberMobKey, PersistentDataType.BOOLEAN);
+        if (Boolean.TRUE.equals(isChamberMob)) {
+            event.blockList().clear();
+        }
+    }
+
+    /**
+     * Vanilla never lets Silk Touch drop a spawner, full stop - that's hardcoded
+     * regardless of enchantment. This carves out a narrow exception for chamber
+     * spawners specifically: Silk Touch on one of ours gives back a spawner item
+     * pre-configured with whatever mob it was set to spawn. Any other spawner on
+     * the server (dungeons, player-placed, etc.) is completely untouched by this -
+     * still fully vanilla, still never drops.
+     */
+    @EventHandler
+    public void onSpawnerBreak(org.bukkit.event.block.BlockBreakEvent event) {
+        org.bukkit.block.Block block = event.getBlock();
+        if (block.getType() != org.bukkit.Material.SPAWNER) {
+            return;
+        }
+        ChamberManager chamberManager = plugin.getChamberManager();
+        if (!chamberManager.isSpawnerLocation(block.getLocation())) {
+            return; // not one of ours - leave fully vanilla, including the no-drop rule
+        }
+
+        org.bukkit.inventory.ItemStack tool = event.getPlayer().getInventory().getItemInMainHand();
+        boolean hasSilkTouch = tool.getEnchantmentLevel(org.bukkit.enchantments.Enchantment.SILK_TOUCH) > 0;
+
+        event.setDropItems(false); // we handle the drop manually (or not at all without Silk Touch)
+
+        if (hasSilkTouch) {
+            EntityType spawnedType = EntityType.PIG;
+            if (block.getState() instanceof org.bukkit.block.CreatureSpawner spawner) {
+                spawnedType = spawner.getSpawnedType();
+            }
+            block.getWorld().dropItemNaturally(block.getLocation(), createSpawnerItem(spawnedType));
+            event.getPlayer().sendMessage(Component.text("Silk Touch harvested the chamber spawner!", NamedTextColor.LIGHT_PURPLE));
+        }
+
+        chamberManager.removeSpawnerLocation(block.getLocation());
+    }
+
+    private org.bukkit.inventory.ItemStack createSpawnerItem(EntityType type) {
+        org.bukkit.inventory.ItemStack item = new org.bukkit.inventory.ItemStack(org.bukkit.Material.SPAWNER);
+        org.bukkit.inventory.meta.ItemMeta meta = item.getItemMeta();
+        if (meta instanceof org.bukkit.inventory.meta.BlockStateMeta blockStateMeta
+                && blockStateMeta.getBlockState() instanceof org.bukkit.block.CreatureSpawner spawnerState) {
+            spawnerState.setSpawnedType(type);
+            blockStateMeta.setBlockState(spawnerState);
+            item.setItemMeta(blockStateMeta);
+        }
+        return item;
+    }
+
     private void dressMob(LivingEntity living, ChamberTheme theme) {
         var equipment = living.getEquipment();
         if (equipment == null) {

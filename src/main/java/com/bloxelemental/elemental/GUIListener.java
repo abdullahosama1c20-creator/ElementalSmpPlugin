@@ -222,7 +222,7 @@ public class GUIListener implements Listener {
         meta.displayName(Component.text((unlocked ? "" : "[LOCKED] ") + tier.label, unlocked ? element.color() : NamedTextColor.DARK_GRAY, TextDecoration.BOLD));
         String cooldownLine = unlocked
                 ? String.format("Requires Lv.%d | %.1fs cooldown at your level", tier.requiredLevel, tier.cooldownSecondsForLevel(level))
-                : String.format("Requires Lv.%d | %.1fs to %.1fs cooldown", tier.requiredLevel, tier.cooldownSeconds, tier.cooldownSeconds * Tier.startingMultiplier);
+                : String.format("Requires Lv.%d | %.1fs to %.1fs cooldown", tier.requiredLevel, (double) tier.cooldownSeconds, tier.cooldownSeconds * Tier.startingMultiplier);
         meta.lore(List.of(
                 Component.text(AbilityInfo.describe(element, tier), unlocked ? NamedTextColor.GRAY : NamedTextColor.DARK_GRAY),
                 Component.text(""),

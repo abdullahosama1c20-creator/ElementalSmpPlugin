@@ -33,7 +33,10 @@ public class PassiveListener implements Listener {
             return;
         }
 
-        // Air takes normal fall damage - no passive reduction (previously 50% less, now removed).
+        if (element == Element.AIR && cause == EntityDamageEvent.DamageCause.FALL) {
+            event.setCancelled(true);
+            return;
+        }
 
         if (element == Element.LIGHTNING && cause == EntityDamageEvent.DamageCause.LIGHTNING) {
             event.setCancelled(true);

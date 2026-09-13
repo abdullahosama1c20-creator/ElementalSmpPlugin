@@ -63,7 +63,7 @@ public record ChamberTheme(
             case EARTH -> new ChamberTheme(
                     Element.EARTH, Material.DEEPSLATE_BRICKS, Material.MOSSY_COBBLESTONE, Material.DEEPSLATE_TILES,
                     Material.MOSSY_STONE_BRICKS, Material.OCHRE_FROGLIGHT, false, false,
-                    new EntityType[]{EntityType.HUSK, EntityType.SILVERFISH, EntityType.ZOMBIE},
+                    new EntityType[]{EntityType.HUSK, EntityType.SILVERFISH, EntityType.ZOMBIE, EntityType.CREEPER},
                     Color.fromRGB(96, 128, 56),
                     new Material[]{Material.EMERALD, Material.IRON_INGOT, Material.DIAMOND, Material.MOSS_BLOCK},
                     Material.TOTEM_OF_UNDYING,

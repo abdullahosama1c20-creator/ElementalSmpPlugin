@@ -324,12 +324,34 @@ public class ChamberManager {
 
     public boolean isSpawnerLocation(Location loc) {
         for (Location spawnerLoc : spawnerLocations) {
-            if (spawnerLoc.getBlockX() == loc.getBlockX() && spawnerLoc.getBlockY() == loc.getBlockY()
-                    && spawnerLoc.getBlockZ() == loc.getBlockZ()) {
+            if (spawnerLoc.getWorld().equals(loc.getWorld()) && spawnerLoc.getBlockX() == loc.getBlockX()
+                    && spawnerLoc.getBlockY() == loc.getBlockY() && spawnerLoc.getBlockZ() == loc.getBlockZ()) {
                 return true;
             }
         }
         return false;
+    }
+
+    /**
+     * Called when a chamber spawner is physically broken (silk-touched or
+     * not). Stops tracking it, and if that was the last one left, alerts
+     * every online player that the chamber has gone quiet - no more mobs
+     * will spawn there, even if the kill quota was never reached. This does
+     * NOT grant the clear-chest loot; that still only comes from meeting the
+     * kill quota via registerKill().
+     */
+    public void removeSpawnerLocation(Location loc) {
+        boolean removed = spawnerLocations.removeIf(l -> l.getWorld().equals(loc.getWorld())
+                && l.getBlockX() == loc.getBlockX() && l.getBlockY() == loc.getBlockY() && l.getBlockZ() == loc.getBlockZ());
+        if (!removed || cleared || activeTheme == null || !spawnerLocations.isEmpty()) {
+            return;
+        }
+        Component message = Component.text("All spawners in the ", NamedTextColor.LIGHT_PURPLE)
+                .append(Component.text(activeTheme.element().displayName(), activeTheme.element().color(), TextDecoration.BOLD))
+                .append(Component.text(" Chamber are gone - no more mobs will spawn there.", NamedTextColor.LIGHT_PURPLE));
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            player.sendMessage(message);
+        }
     }
 
     /**

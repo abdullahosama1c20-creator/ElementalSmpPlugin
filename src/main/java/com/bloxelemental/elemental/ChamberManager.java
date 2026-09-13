@@ -419,20 +419,43 @@ public class ChamberManager {
         bossBar.name(Component.text("Chamber cleared - a new one rolls soon.", NamedTextColor.GRAY));
     }
 
+    private static final Material[] UNIVERSAL_BONUS_LOOT = {
+            Material.DIAMOND, Material.EMERALD, Material.GOLD_INGOT, Material.NETHERITE_SCRAP
+    };
+
     private void fillLoot(Chest chest, ChamberTheme theme) {
-        int itemCount = elite ? 6 + random.nextInt(3) : 3 + random.nextInt(3); // more stacks in Elite chambers
+        // Buffed loot: bigger stacks, more items, better odds at the good stuff.
+        int itemCount = elite ? 9 + random.nextInt(4) : 5 + random.nextInt(3); // Elite: 9-12, Normal: 5-7
         for (int i = 0; i < itemCount; i++) {
             Material material = theme.lootPool()[random.nextInt(theme.lootPool().length)];
-            int amount = 1 + random.nextInt(3);
+            int amount = elite ? 3 + random.nextInt(3) : 2 + random.nextInt(3); // Elite: 3-5, Normal: 2-4
             chest.getBlockInventory().addItem(new ItemStack(material, amount));
         }
-        // Elite chambers guarantee the theme's rare item; normal chambers get a 15% shot at it.
-        if (theme.rareLoot() != null && (elite || random.nextDouble() < 0.15D)) {
-            chest.getBlockInventory().addItem(new ItemStack(theme.rareLoot(), 1));
+
+        // Elite chambers guarantee the theme's rare item (and have a shot at a second);
+        // normal chambers now get a much better 30% shot at it instead of 15%.
+        if (theme.rareLoot() != null) {
+            if (elite) {
+                chest.getBlockInventory().addItem(new ItemStack(theme.rareLoot(), 1));
+                if (random.nextDouble() < 0.4D) {
+                    chest.getBlockInventory().addItem(new ItemStack(theme.rareLoot(), 1));
+                }
+            } else if (random.nextDouble() < 0.30D) {
+                chest.getBlockInventory().addItem(new ItemStack(theme.rareLoot(), 1));
+            }
         }
+
+        // Universal bonus loot - valuable vanilla materials on top of the themed items,
+        // regardless of which element's chamber this is.
+        int bonusRolls = elite ? 2 + random.nextInt(2) : (random.nextDouble() < 0.35D ? 1 : 0);
+        for (int i = 0; i < bonusRolls; i++) {
+            Material bonus = UNIVERSAL_BONUS_LOOT[random.nextInt(UNIVERSAL_BONUS_LOOT.length)];
+            chest.getBlockInventory().addItem(new ItemStack(bonus, 1 + random.nextInt(2)));
+        }
+
         // Every chamber clear has a small chance to award an awakening item, since
         // they're otherwise only obtainable from an admin - this gives players a
-        // real path to unlocking Lightning or Void on their own.
+        // real path to fusing Lightning or Void into their own element.
         double awakeningChance = elite ? awakeningChanceElite : awakeningChanceNormal;
         if (random.nextDouble() < awakeningChance) {
             ItemStack awakeningItem = random.nextBoolean() ? AbilityListener.stormCoreItem() : AbilityListener.voidTearItem();

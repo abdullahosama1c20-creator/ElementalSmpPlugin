@@ -25,6 +25,9 @@ mastery:
   # that's +10 max health (5 hearts) and +2 attack damage.
   health-per-level: 0.1
   damage-per-level: 0.02
+  # Damage multiplier for ability casts while your active element is fused with
+  # Lightning or Void (on top of the elemental counter cycle's own bonus/penalty).
+  fusion-damage-multiplier: 1.2
 
 cooldowns:
   # Ability cooldowns in seconds, per tier - these are now the LEVEL 100 (minimum) values.

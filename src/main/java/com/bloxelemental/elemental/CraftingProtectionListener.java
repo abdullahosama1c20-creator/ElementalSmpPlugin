@@ -14,7 +14,7 @@ import org.bukkit.persistence.PersistentDataType;
  * Catalysts are built on top of a Nether Star, which is normally a beacon
  * ingredient - without this, a player could feed their ability item into a
  * beacon recipe. This blocks any crafting recipe that has a catalyst
- * (or armor-set piece) anywhere in the grid, regardless of what the recipe is.
+ * anywhere in the grid, regardless of what the recipe is.
  */
 public class CraftingProtectionListener implements Listener {
 
@@ -43,7 +43,6 @@ public class CraftingProtectionListener implements Listener {
         }
         var pdc = item.getItemMeta().getPersistentDataContainer();
         Boolean catalyst = pdc.get(new NamespacedKey(plugin, "elemental_catalyst"), PersistentDataType.BOOLEAN);
-        String armorElement = pdc.get(new NamespacedKey(plugin, "armor_element"), PersistentDataType.STRING);
-        return Boolean.TRUE.equals(catalyst) || armorElement != null;
+        return Boolean.TRUE.equals(catalyst);
     }
 }

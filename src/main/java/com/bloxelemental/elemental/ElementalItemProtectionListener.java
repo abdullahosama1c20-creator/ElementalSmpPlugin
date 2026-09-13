@@ -19,11 +19,11 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * A player's catalyst and armor set are their "element" made physical -
- * losing either voluntarily (drop) or permanently (death, if unclaimed
- * before despawn) shouldn't be possible. Awakening items (Storm Core / Void
- * Tear) are deliberately NOT protected here - those are meant to be
- * spendable/tradeable one-time unlock items, not part of your identity.
+ * A player's catalyst is their "element" made physical - losing it
+ * voluntarily (drop) or permanently (death, if unclaimed before despawn)
+ * shouldn't be possible. Awakening items (Storm Core / Void Tear) are
+ * deliberately NOT protected here - those are meant to be spendable/tradeable
+ * one-time unlock items, not part of your identity.
  */
 public class ElementalItemProtectionListener implements Listener {
 
@@ -78,7 +78,6 @@ public class ElementalItemProtectionListener implements Listener {
         }
         var pdc = item.getItemMeta().getPersistentDataContainer();
         Boolean catalyst = pdc.get(new NamespacedKey(plugin, "elemental_catalyst"), PersistentDataType.BOOLEAN);
-        String armorElement = pdc.get(new NamespacedKey(plugin, "armor_element"), PersistentDataType.STRING);
-        return Boolean.TRUE.equals(catalyst) || armorElement != null;
+        return Boolean.TRUE.equals(catalyst);
     }
 }

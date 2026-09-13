@@ -62,6 +62,7 @@ public class MasteryManager {
         }
         data = YamlConfiguration.loadConfiguration(dataFile);
         migrateLegacySingleElementFormat();
+        migrateLegacyStandaloneAdvancedElements();
     }
 
     /**
@@ -110,6 +111,97 @@ public class MasteryManager {
             saveData();
             plugin.getLogger().info("Migrated " + migrated + " player(s) from the old single-element data format - no progress lost.");
         }
+    }
+
+    /**
+     * One-time upgrade for data.yml files written by the previous
+     * multi-element-but-no-fusion version of this plugin, which let players
+     * own Lightning/Void as fully standalone elements. Since fusion replaced
+     * that system, this pairs up each standalone Lightning/Void slot with an
+     * owned starter slot that doesn't already have a fusion (preferring
+     * whichever starter was active), converts it into a fusion on that
+     * starter, and removes the old standalone slot. If a player owned more
+     * advanced elements than they have unfused starters to attach them to,
+     * the leftover is dropped with a log notice - there's no starter left to
+     * fuse it onto. Safe to run every startup; already-migrated data has no
+     * standalone Lightning/Void slots left to find.
+     */
+    private void migrateLegacyStandaloneAdvancedElements() {
+        if (!data.isConfigurationSection("players")) {
+            return;
+        }
+        int migrated = 0;
+        int dropped = 0;
+        for (String uuidString : data.getConfigurationSection("players").getKeys(false)) {
+            UUID uuid;
+            try {
+                uuid = UUID.fromString(uuidString);
+            } catch (IllegalArgumentException e) {
+                continue;
+            }
+            String playerBase = base(uuid);
+            ConfigurationSection elementsSection = data.getConfigurationSection(playerBase + ".elements");
+            if (elementsSection == null) {
+                continue;
+            }
+
+            List<Element> standaloneAdvanced = new ArrayList<>();
+            for (String key : elementsSection.getKeys(false)) {
+                Element element = Element.fromArgument(key);
+                if (element != null && !element.isStarter()) {
+                    standaloneAdvanced.add(element);
+                }
+            }
+            if (standaloneAdvanced.isEmpty()) {
+                continue;
+            }
+
+            Element currentActive = getElement(uuid);
+            List<Element> unfusedStarters = new ArrayList<>();
+            if (currentActive != null && currentActive.isStarter() && !isFused(uuid, currentActive)) {
+                unfusedStarters.add(currentActive);
+            }
+            for (Element owned : getOwnedElements(uuid)) {
+                if (owned.isStarter() && !isFused(uuid, owned) && !unfusedStarters.contains(owned)) {
+                    unfusedStarters.add(owned);
+                }
+            }
+
+            boolean activeWasAdvanced = currentActive != null && !currentActive.isStarter();
+            Element newActive = null;
+
+            for (Element advanced : standaloneAdvanced) {
+                if (!unfusedStarters.isEmpty()) {
+                    Element target = unfusedStarters.remove(0);
+                    data.set(elementPath(uuid, target, "fusion"), advanced.name());
+                    if (newActive == null) {
+                        newActive = target;
+                    }
+                    migrated++;
+                } else {
+                    dropped++;
+                }
+                data.set(playerBase + ".elements." + advanced.name(), null);
+            }
+
+            if (activeWasAdvanced) {
+                data.set(playerBase + ".active", (newActive != null ? newActive : firstOwnedStarterOrNull(uuid)).name());
+            }
+        }
+        if (migrated > 0 || dropped > 0) {
+            saveData();
+            plugin.getLogger().info("Fusion migration: converted " + migrated + " standalone advanced element(s) into fusions"
+                    + (dropped > 0 ? ", dropped " + dropped + " with no starter slot to attach to" : "") + ".");
+        }
+    }
+
+    private Element firstOwnedStarterOrNull(UUID uuid) {
+        for (Element element : getOwnedElements(uuid)) {
+            if (element.isStarter()) {
+                return element;
+            }
+        }
+        return Element.FIRE; // should never actually happen - every player who awakened first owned a starter
     }
 
     public void saveData() {
@@ -169,9 +261,7 @@ public class MasteryManager {
         initializeElementSlot(uuid, element);
         data.set(base(uuid) + ".active", element.name());
         saveData();
-    }
-
-    /**
+    }    /**
      * Grants ownership of a new element slot (fresh level 1/xp 0, or preserved
      * if they somehow already own it) and switches active to it. Used both for
      * unlocking an additional starter element and for awakening into an
@@ -198,6 +288,74 @@ public class MasteryManager {
     private void initializeElementSlot(UUID uuid, Element element) {
         data.set(elementPath(uuid, element, "level"), 1);
         data.set(elementPath(uuid, element, "xp"), 0.0D);
+    }
+
+    // ---------------------------------------------------------------------
+    // Fusion: merging Lightning/Void into an owned starter element slot
+    // ---------------------------------------------------------------------
+
+    /** The fusion (LIGHTNING/VOID) applied to a specific owned element slot, or null if unfused. */
+    public Element getFusion(UUID uuid, Element element) {
+        String raw = data.getString(elementPath(uuid, element, "fusion"));
+        return raw == null ? null : Element.fromArgument(raw);
+    }
+
+    /** The fusion applied to whichever element is currently active, or null. */
+    public Element getFusion(UUID uuid) {
+        Element active = getElement(uuid);
+        return active == null ? null : getFusion(uuid, active);
+    }
+
+    public boolean isFused(UUID uuid, Element element) {
+        return getFusion(uuid, element) != null;
+    }
+
+    /**
+     * True if the player's currently active element is a starter, unfused,
+     * and at max level - the requirements to fuse it with Lightning or Void.
+     */
+    public boolean canFuseActiveElement(UUID uuid) {
+        Element active = getElement(uuid);
+        return active != null && active.isStarter() && !isFused(uuid, active) && getLevel(uuid, active) >= ULTIMATE_THRESHOLD;
+    }
+
+    /**
+     * Fuses the player's currently active element with Lightning or Void.
+     * This does not create a new owned element or touch level/xp - it just
+     * marks the active slot as fused, which AbilityListener/PassiveInfo read
+     * to grant bonus damage, a secondary status proc, and the fusion's
+     * passive on top of the base element's own kit.
+     */
+    public void fuseActiveElement(UUID uuid, Element fusionType) {
+        Element active = getElement(uuid);
+        if (active == null) {
+            return;
+        }
+        data.set(elementPath(uuid, active, "fusion"), fusionType.name());
+        saveData();
+    }
+
+    // ---------------------------------------------------------------------
+    // Passive toggles - lets a player turn off a specific element's buff-style
+    // passive components (e.g. Water's swim speed/haste, Lightning's Speed,
+    // Void's Night Vision/Slow Falling) without losing anything else about
+    // that element. Only elements with a "buff bundle" (see
+    // PassiveInfo.hasToggleableBuff) have anything to toggle.
+    // ---------------------------------------------------------------------
+
+    public boolean isPassiveEnabled(UUID uuid, Element element) {
+        return data.getBoolean("players." + uuid + ".passiveToggles." + element.name(), true);
+    }
+
+    public void setPassiveEnabled(UUID uuid, Element element, boolean enabled) {
+        data.set("players." + uuid + ".passiveToggles." + element.name(), enabled);
+        saveData();
+    }
+
+    public boolean togglePassive(UUID uuid, Element element) {
+        boolean newValue = !isPassiveEnabled(uuid, element);
+        setPassiveEnabled(uuid, element, newValue);
+        return newValue;
     }
 
     // ---------------------------------------------------------------------
@@ -351,17 +509,7 @@ public class MasteryManager {
         return getLevel(uuid) >= requiredLevel;
     }
 
-    /** True if the player owns any STARTER element at max level - the gate for awakening into Lightning/Void. */
-    public boolean isAwakeningEligible(UUID uuid) {
-        for (Element element : getOwnedElements(uuid)) {
-            if (element.isStarter() && getLevel(uuid, element) >= ULTIMATE_THRESHOLD) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /** True if the player owns ANY element at max level - the general gate for picking up another element slot. */
+    /** True if the player owns ANY element at max level - the general gate for picking up another starter slot. */
     public boolean canUnlockAnotherElement(UUID uuid) {
         for (Element element : getOwnedElements(uuid)) {
             if (getLevel(uuid, element) >= ULTIMATE_THRESHOLD) {
@@ -369,14 +517,6 @@ public class MasteryManager {
             }
         }
         return false;
-    }
-
-    /**
-     * Awakens a player into Lightning or Void. This is purely additive now -
-     * it does not touch any element they already own.
-     */
-    public void awaken(UUID uuid, Element advancedElement) {
-        unlockAdditionalElement(uuid, advancedElement);
     }
 
     // ---------------------------------------------------------------------

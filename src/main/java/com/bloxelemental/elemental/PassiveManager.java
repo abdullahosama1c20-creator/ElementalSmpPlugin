@@ -34,16 +34,9 @@ public class PassiveManager {
         for (Player player : Bukkit.getOnlinePlayers()) {
             Element element = plugin.getMasteryManager().getElement(player.getUniqueId());
             if (element != null) {
-                PassiveInfo.applyBuffs(player, element);
-                applySetBonus(player, element);
+                PassiveInfo.applyBuffs(plugin, player, element);
                 LevelStats.apply(plugin, player);
             }
-        }
-    }
-
-    private void applySetBonus(Player player, Element element) {
-        if (ArmorSets.hasFullSet(plugin, player, element)) {
-            player.addPotionEffect(new PotionEffect(PotionEffectType.ABSORPTION, 20 * 40, 0, true, false));
         }
     }
 

@@ -63,8 +63,13 @@ public class ElementCommand implements CommandExecutor, TabCompleter {
         double xp = manager.getXP(uuid);
         double xpNeeded = manager.xpForNextLevel(level);
 
+        Element fusion = manager.getFusion(uuid, element);
+
         player.sendMessage(Component.text("--- Your Stats ---", NamedTextColor.GOLD, TextDecoration.BOLD));
         player.sendMessage(Component.text("Active Element: ", NamedTextColor.GRAY).append(Component.text(element.displayName(), element.color())));
+        if (fusion != null) {
+            player.sendMessage(Component.text("Fused With: ", NamedTextColor.GRAY).append(Component.text(fusion.displayName(), fusion.color())));
+        }
         player.sendMessage(Component.text("Mastery Level: ", NamedTextColor.GRAY).append(Component.text(level + "/" + MasteryManager.MAX_LEVEL, NamedTextColor.WHITE)));
         if (level < MasteryManager.MAX_LEVEL) {
             player.sendMessage(Component.text("XP to next level: ", NamedTextColor.GRAY)
@@ -80,16 +85,21 @@ public class ElementCommand implements CommandExecutor, TabCompleter {
                 if (other == element) {
                     continue;
                 }
-                player.sendMessage(Component.text("  " + other.displayName() + " ", other.color())
-                        .append(Component.text("Lv." + manager.getLevel(uuid, other), NamedTextColor.WHITE)));
+                Component line = Component.text("  " + other.displayName() + " ", other.color())
+                        .append(Component.text("Lv." + manager.getLevel(uuid, other), NamedTextColor.WHITE));
+                Element otherFusion = manager.getFusion(uuid, other);
+                if (otherFusion != null) {
+                    line = line.append(Component.text(" (fused: " + otherFusion.displayName() + ")", otherFusion.color()));
+                }
+                player.sendMessage(line);
             }
         }
         if (manager.canUnlockAnotherElement(uuid)) {
             player.sendMessage(Component.text("You can unlock another starter element via /element gui!", NamedTextColor.LIGHT_PURPLE));
         }
-        if (manager.isAwakeningEligible(uuid) && !manager.ownsElement(uuid, Element.LIGHTNING) && !manager.ownsElement(uuid, Element.VOID)) {
-            player.sendMessage(Component.text("Awakening Eligible! ", NamedTextColor.LIGHT_PURPLE)
-                    .append(Component.text("Find a Storm Core or Void Tear.", NamedTextColor.GRAY)));
+        if (manager.canFuseActiveElement(uuid)) {
+            player.sendMessage(Component.text("Fusion Eligible! ", NamedTextColor.LIGHT_PURPLE)
+                    .append(Component.text("Find a Storm Core or Void Tear to fuse your active element.", NamedTextColor.GRAY)));
         }
     }
 

@@ -9,6 +9,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.CreatureSpawnEvent;
+import org.bukkit.event.entity.EntityCombustEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.LeatherArmorMeta;
@@ -62,6 +63,25 @@ public class ChamberListener implements Listener {
         if (maxHealthAttr != null) {
             maxHealthAttr.setBaseValue(maxHealthAttr.getBaseValue() + bonusHealth);
             living.setHealth(maxHealthAttr.getValue());
+        }
+    }
+
+    /**
+     * Some chamber mobs (Zombie, Skeleton) normally catch fire and die in
+     * direct sunlight - without this, "the spawners aren't spawning" would
+     * actually just be them burning to death seconds after spawning during
+     * the day, especially in open-ceiling chambers like Lightning's. This
+     * makes every chamber mob immune to sunlight combustion specifically,
+     * without touching any other fire source (lava, our own Fire abilities, etc.).
+     */
+    @EventHandler
+    public void onCombust(EntityCombustEvent event) {
+        if (!(event.getEntity() instanceof LivingEntity living)) {
+            return;
+        }
+        Boolean isChamberMob = living.getPersistentDataContainer().get(chamberMobKey, PersistentDataType.BOOLEAN);
+        if (Boolean.TRUE.equals(isChamberMob)) {
+            event.setCancelled(true);
         }
     }
 

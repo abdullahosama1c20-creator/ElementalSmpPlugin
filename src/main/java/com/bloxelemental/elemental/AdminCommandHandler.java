@@ -19,7 +19,7 @@ import java.util.UUID;
 
 public class AdminCommandHandler implements CommandExecutor, TabCompleter {
 
-    private static final List<String> SUBCOMMANDS = List.of("inspect", "setlevel", "setelement", "giveitem", "announce", "locate", "reroll", "top");
+    private static final List<String> SUBCOMMANDS = List.of("inspect", "setlevel", "setelement", "fuse", "giveitem", "announce", "locate", "reroll", "top");
 
     private final ElementalSMP plugin;
 
@@ -49,6 +49,7 @@ public class AdminCommandHandler implements CommandExecutor, TabCompleter {
             case "inspect" -> handleInspect(sender, args);
             case "setlevel" -> handleSetLevel(sender, args);
             case "setelement" -> handleSetElement(sender, args);
+            case "fuse" -> handleFuse(sender, args);
             case "giveitem" -> handleGiveItem(sender, args);
             case "announce" -> handleAnnounce(sender, args);
             case "locate" -> handleLocate(sender);
@@ -86,6 +87,7 @@ public class AdminCommandHandler implements CommandExecutor, TabCompleter {
         sender.sendMessage(Component.text("/elemental inspect <player>", NamedTextColor.YELLOW));
         sender.sendMessage(Component.text("/elemental setlevel <player> <level>", NamedTextColor.YELLOW));
         sender.sendMessage(Component.text("/elemental setelement <player> <element>", NamedTextColor.YELLOW));
+        sender.sendMessage(Component.text("/elemental fuse <player> <lightning|void>", NamedTextColor.YELLOW));
         sender.sendMessage(Component.text("/elemental giveitem <player> <lightning_core|void_tear>", NamedTextColor.YELLOW));
         sender.sendMessage(Component.text("/elemental announce <message>", NamedTextColor.YELLOW));
         sender.sendMessage(Component.text("/elemental locate", NamedTextColor.YELLOW));
@@ -141,6 +143,11 @@ public class AdminCommandHandler implements CommandExecutor, TabCompleter {
         }
         sender.sendMessage(Component.text("Active Element: ", NamedTextColor.GRAY)
                 .append(Component.text(element.displayName(), element.color())));
+        Element fusion = manager.getFusion(uuid, element);
+        if (fusion != null) {
+            sender.sendMessage(Component.text("Fused With: ", NamedTextColor.GRAY)
+                    .append(Component.text(fusion.displayName(), fusion.color())));
+        }
         sender.sendMessage(Component.text("Mastery Level: ", NamedTextColor.GRAY)
                 .append(Component.text(manager.getLevel(uuid) + " / " + MasteryManager.MAX_LEVEL, NamedTextColor.WHITE)));
         sender.sendMessage(Component.text("Total XP into next level: ", NamedTextColor.GRAY)
@@ -214,8 +221,9 @@ public class AdminCommandHandler implements CommandExecutor, TabCompleter {
             return;
         }
         Element element = Element.fromArgument(args[2]);
-        if (element == null) {
-            sender.sendMessage(Component.text("Unknown element. Valid: Fire, Water, Air, Earth, Lightning, Void", NamedTextColor.RED));
+        if (element == null || !element.isStarter()) {
+            sender.sendMessage(Component.text("setelement only accepts starter elements (Fire, Water, Air, Earth). "
+                    + "Use /elemental fuse <player> <lightning|void> to fuse an advanced element into their active one.", NamedTextColor.RED));
             return;
         }
 
@@ -231,19 +239,57 @@ public class AdminCommandHandler implements CommandExecutor, TabCompleter {
             manager.unlockAdditionalElement(uuid, element);
         }
 
-        // Only hand out a fresh catalyst/armor set if they didn't already own this element -
+        // Only hand out a fresh catalyst if they didn't already own this element -
         // an admin switching someone TO an element they already have shouldn't duplicate gear.
         if (!alreadyOwned) {
             target.getInventory().addItem(AbilityListener.catalystItem(plugin, element));
-            target.getInventory().addItem(ArmorSets.armorPieces(plugin, element));
         }
-        PassiveInfo.applyBuffs(target, element);
+        PassiveInfo.applyBuffs(plugin, target, element);
         LevelStats.apply(plugin, target);
 
         sender.sendMessage(Component.text("Set " + target.getName() + "'s active element to ", NamedTextColor.GREEN)
                 .append(Component.text(element.displayName(), element.color())));
         target.sendMessage(Component.text("An admin set your active element to ", NamedTextColor.YELLOW)
                 .append(Component.text(element.displayName(), element.color())));
+    }
+
+    private void handleFuse(CommandSender sender, String[] args) {
+        if (args.length < 3) {
+            sender.sendMessage(Component.text("Usage: /elemental fuse <player> <lightning|void>", NamedTextColor.RED));
+            return;
+        }
+        Player target = Bukkit.getPlayerExact(args[1]);
+        if (target == null) {
+            sender.sendMessage(Component.text("Player not found or offline.", NamedTextColor.RED));
+            return;
+        }
+        Element fusionType = Element.fromArgument(args[2]);
+        if (fusionType == null || fusionType.isStarter()) {
+            sender.sendMessage(Component.text("Fusion type must be lightning or void.", NamedTextColor.RED));
+            return;
+        }
+
+        MasteryManager manager = plugin.getMasteryManager();
+        UUID uuid = target.getUniqueId();
+        Element active = manager.getElement(uuid);
+        if (active == null) {
+            sender.sendMessage(Component.text(target.getName() + " has not chosen an element yet.", NamedTextColor.RED));
+            return;
+        }
+        if (manager.isFused(uuid, active)) {
+            sender.sendMessage(Component.text(target.getName() + "'s active element is already fused with "
+                    + manager.getFusion(uuid, active).displayName() + ".", NamedTextColor.RED));
+            return;
+        }
+
+        manager.fuseActiveElement(uuid, fusionType);
+        PassiveInfo.applyBuffs(plugin, target, active);
+        LevelStats.apply(plugin, target);
+
+        sender.sendMessage(Component.text("Fused " + target.getName() + "'s " + active.displayName() + " with "
+                + fusionType.displayName() + ".", NamedTextColor.GREEN));
+        target.sendMessage(Component.text("An admin fused your " + active.displayName() + " with ", NamedTextColor.YELLOW)
+                .append(Component.text(fusionType.displayName(), fusionType.color())));
     }
 
     private void handleGiveItem(CommandSender sender, String[] args) {
@@ -324,8 +370,13 @@ public class AdminCommandHandler implements CommandExecutor, TabCompleter {
             }
         } else if (args.length == 3 && args[0].equalsIgnoreCase("setelement")) {
             for (Element element : Element.values()) {
-                results.add(element.name());
+                if (element.isStarter()) {
+                    results.add(element.name());
+                }
             }
+        } else if (args.length == 3 && args[0].equalsIgnoreCase("fuse")) {
+            results.add("LIGHTNING");
+            results.add("VOID");
         } else if (args.length == 3 && args[0].equalsIgnoreCase("giveitem")) {
             results.add("lightning_core");
             results.add("void_tear");

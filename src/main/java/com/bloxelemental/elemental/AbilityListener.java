@@ -160,15 +160,21 @@ public class AbilityListener implements Listener {
         return name == null ? null : net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText().serialize(name);
     }
 
-    private void handleAwakening(Player player, ItemStack item, Element target) {
+    private void handleAwakening(Player player, ItemStack item, Element fusionType) {
         MasteryManager manager = plugin.getMasteryManager();
         UUID uuid = player.getUniqueId();
-        if (manager.ownsElement(uuid, target)) {
-            player.sendMessage(Component.text("You have already awakened " + target.displayName() + ".", NamedTextColor.RED));
+        Element active = manager.getElement(uuid);
+        if (active == null) {
+            player.sendMessage(Component.text("Choose an element with /element gui first.", NamedTextColor.RED));
             return;
         }
-        if (!manager.isAwakeningEligible(uuid)) {
-            player.sendMessage(Component.text("You need Mastery Level 100 on a starter element before you can awaken.", NamedTextColor.RED));
+        if (manager.isFused(uuid, active)) {
+            player.sendMessage(Component.text("Your active element (" + active.displayName() + ") is already fused with "
+                    + manager.getFusion(uuid, active).displayName() + ". Switch to a different, unfused element to fuse it instead.", NamedTextColor.RED));
+            return;
+        }
+        if (!manager.canFuseActiveElement(uuid)) {
+            player.sendMessage(Component.text("Your active element needs to be Mastery Level 100 before you can fuse it.", NamedTextColor.RED));
             return;
         }
 
@@ -176,9 +182,11 @@ public class AbilityListener implements Listener {
         Long confirmBy = pendingAwakenConfirmations.get(uuid);
         if (confirmBy == null || confirmBy < now) {
             pendingAwakenConfirmations.put(uuid, now + AWAKEN_CONFIRM_WINDOW_MS);
-            player.sendMessage(Component.text("This will consume the item and unlock ", NamedTextColor.YELLOW)
-                    .append(Component.text(target.displayName(), target.color(), TextDecoration.BOLD))
-                    .append(Component.text(" as an additional element. Your other elements are untouched.", NamedTextColor.YELLOW)));
+            player.sendMessage(Component.text("This will consume the item and fuse ", NamedTextColor.YELLOW)
+                    .append(Component.text(fusionType.displayName(), fusionType.color(), TextDecoration.BOLD))
+                    .append(Component.text(" into your active ", NamedTextColor.YELLOW))
+                    .append(Component.text(active.displayName(), active.color(), TextDecoration.BOLD))
+                    .append(Component.text(" - stronger abilities, permanently. Your other owned elements are untouched.", NamedTextColor.YELLOW)));
             player.sendMessage(Component.text("Right-click again within 15 seconds to confirm.", NamedTextColor.GRAY));
             player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 1.0F, 0.7F);
             return;
@@ -186,19 +194,18 @@ public class AbilityListener implements Listener {
         pendingAwakenConfirmations.remove(uuid);
 
         item.setAmount(item.getAmount() - 1);
-        manager.awaken(uuid, target);
+        manager.fuseActiveElement(uuid, fusionType);
 
-        player.getInventory().addItem(catalystItem(plugin, target));
-        player.getInventory().addItem(ArmorSets.armorPieces(plugin, target));
-        PassiveInfo.applyBuffs(player, target);
+        PassiveInfo.applyBuffs(plugin, player, active);
         LevelStats.apply(plugin, player);
 
         player.getWorld().spawnParticle(Particle.END_ROD, player.getLocation().add(0, 1, 0), 120, 1, 1.5, 1, 0.05);
-        player.playSound(player.getLocation(), Sound.ENTITY_ENDER_DRAGON_GROWL, 1.0F, target == Element.VOID ? 0.5F : 1.5F);
-        player.sendMessage(Component.text("You have awakened the element of ", NamedTextColor.LIGHT_PURPLE)
-                .append(Component.text(target.displayName(), target.color(), TextDecoration.BOLD))
-                .append(Component.text("! It is now your active element.", NamedTextColor.LIGHT_PURPLE)));
-        player.sendMessage(Component.text("Your new " + target.displayName() + " Catalyst has been added to your inventory. Switch back anytime in /element gui.", NamedTextColor.GRAY));
+        player.playSound(player.getLocation(), Sound.ENTITY_ENDER_DRAGON_GROWL, 1.0F, fusionType == Element.VOID ? 0.5F : 1.5F);
+        player.sendMessage(Component.text("Your " + active.displayName() + " has been fused with ", NamedTextColor.LIGHT_PURPLE)
+                .append(Component.text(fusionType.displayName(), fusionType.color(), TextDecoration.BOLD))
+                .append(Component.text("! Your abilities are now stronger and carry a ", NamedTextColor.LIGHT_PURPLE))
+                .append(Component.text(fusionType == Element.LIGHTNING ? "slowing" : "blinding", fusionType.color()))
+                .append(Component.text(" bonus effect.", NamedTextColor.LIGHT_PURPLE)));
     }
 
     /**
@@ -874,15 +881,38 @@ public class AbilityListener implements Listener {
     }
 
     /**
-     * Applies the elemental counter cycle on top of a base ability damage
-     * amount, then deals it. Chamber mobs count as having their chamber's
-     * element for this purpose; other mobs and elementless players are neutral.
+     * Applies the elemental counter cycle plus any active fusion bonus on top
+     * of a base ability damage amount, then deals it. A fused attacker deals
+     * extra damage and applies a secondary status proc matching their fusion
+     * type (Lightning = brief slow, Void = brief blindness) - see
+     * handleAwakening for how fusion is acquired. Chamber mobs count as
+     * having their chamber's element for the counter cycle; other mobs and
+     * elementless players are neutral to it.
      */
     private void dealDamage(LivingEntity target, double baseAmount, Player attacker) {
-        Element attackerElement = plugin.getMasteryManager().getElement(attacker.getUniqueId());
+        MasteryManager manager = plugin.getMasteryManager();
+        Element attackerElement = manager.getElement(attacker.getUniqueId());
         Element defenderElement = resolveElement(target);
         double multiplier = ElementalCounters.damageMultiplier(attackerElement, defenderElement);
+
+        Element fusion = manager.getFusion(attacker.getUniqueId());
+        if (fusion != null) {
+            multiplier *= plugin.getConfig().getDouble("mastery.fusion-damage-multiplier", 1.2D);
+            applyFusionProc(target, fusion);
+        }
+
         target.damage(baseAmount * multiplier, attacker);
+    }
+
+    /** The secondary status effect a fused ability cast layers onto its target, matching the fusion type. */
+    private void applyFusionProc(LivingEntity target, Element fusionType) {
+        if (fusionType == Element.LIGHTNING) {
+            target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 20, 3, true, true));
+            target.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, target.getLocation().add(0, 1, 0), 10, 0.3, 0.4, 0.3, 0.02);
+        } else if (fusionType == Element.VOID) {
+            target.addPotionEffect(new PotionEffect(PotionEffectType.BLINDNESS, 30, 0, true, true));
+            target.getWorld().spawnParticle(Particle.PORTAL, target.getLocation().add(0, 1, 0), 15, 0.3, 0.4, 0.3, 0.05);
+        }
     }
 
     private Element resolveElement(LivingEntity entity) {

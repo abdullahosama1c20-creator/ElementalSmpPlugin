@@ -510,13 +510,17 @@ public class MasteryManager {
     }
 
     /** True if the player owns ANY element at max level - the general gate for picking up another starter slot. */
+    /**
+     * True if the player is allowed to own one more element than they
+     * currently do. Total owned elements is capped at 1 + however many of
+     * their owned elements are at max level - each level-100 achievement
+     * grants exactly one additional unlock, not unlimited unlocks forever
+     * once any single element is maxed.
+     */
     public boolean canUnlockAnotherElement(UUID uuid) {
-        for (Element element : getOwnedElements(uuid)) {
-            if (getLevel(uuid, element) >= ULTIMATE_THRESHOLD) {
-                return true;
-            }
-        }
-        return false;
+        List<Element> owned = getOwnedElements(uuid);
+        long maxedCount = owned.stream().filter(element -> getLevel(uuid, element) >= ULTIMATE_THRESHOLD).count();
+        return owned.size() < 1 + maxedCount;
     }
 
     // ---------------------------------------------------------------------

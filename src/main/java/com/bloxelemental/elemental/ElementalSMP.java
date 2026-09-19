@@ -9,6 +9,7 @@ public final class ElementalSMP extends JavaPlugin {
     private MasteryManager masteryManager;
     private ChamberManager chamberManager;
     private PassiveManager passiveManager;
+    private TradeListener tradeListener;
 
     @Override
     public void onEnable() {
@@ -34,6 +35,9 @@ public final class ElementalSMP extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new MeleePassiveListener(this, abilityListener), this);
         getServer().getPluginManager().registerEvents(new ElementalItemProtectionListener(this), this);
         getServer().getPluginManager().registerEvents(new CraftingProtectionListener(this), this);
+
+        tradeListener = new TradeListener(this);
+        getServer().getPluginManager().registerEvents(tradeListener, this);
 
         SleepListener sleepListener = new SleepListener(this);
         getServer().getPluginManager().registerEvents(sleepListener, this);
@@ -72,5 +76,9 @@ public final class ElementalSMP extends JavaPlugin {
 
     public PassiveManager getPassiveManager() {
         return passiveManager;
+    }
+
+    public TradeListener getTradeListener() {
+        return tradeListener;
     }
 }

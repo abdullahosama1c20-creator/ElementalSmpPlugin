@@ -52,3 +52,17 @@ cooldowns:
 sleep:
   # Bonus Mastery XP awarded to whoever slept through the night when the server skips it.
   bonus-xp: 50
+
+trade:
+  # Spawner types shown in the "Wild Spawners" section of /element trade. Anything
+  # that's actually used by a chamber theme is automatically excluded from this list
+  # even if listed here, so it can never overlap the "Chamber Spawners" section.
+  wild-spawners:
+    - SPIDER
+    - COD
+    - COW
+    - SHEEP
+    - PIG
+    - CHICKEN
+    - RABBIT
+    - CAVE_SPIDER

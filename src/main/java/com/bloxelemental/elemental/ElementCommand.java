@@ -28,7 +28,7 @@ public class ElementCommand implements CommandExecutor, TabCompleter {
         }
 
         if (args.length == 0) {
-            player.sendMessage(Component.text("Usage: /element gui | /element abilities | /element stats", NamedTextColor.YELLOW));
+            player.sendMessage(Component.text("Usage: /element gui | /element abilities | /element stats | /element trade", NamedTextColor.YELLOW));
             return true;
         }
 
@@ -42,8 +42,13 @@ public class ElementCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
+        if (args[0].equalsIgnoreCase("trade")) {
+            plugin.getTradeListener().openTradeGUI(player);
+            return true;
+        }
+
         if (!args[0].equalsIgnoreCase("gui")) {
-            player.sendMessage(Component.text("Usage: /element gui | /element abilities | /element stats", NamedTextColor.YELLOW));
+            player.sendMessage(Component.text("Usage: /element gui | /element abilities | /element stats | /element trade", NamedTextColor.YELLOW));
             return true;
         }
 
@@ -106,7 +111,7 @@ public class ElementCommand implements CommandExecutor, TabCompleter {
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length == 1) {
-            return List.of("gui", "abilities", "stats");
+            return List.of("gui", "abilities", "stats", "trade");
         }
         return List.of();
     }

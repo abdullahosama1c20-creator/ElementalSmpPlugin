@@ -121,7 +121,7 @@ public class ChamberListener implements Listener {
             if (block.getState() instanceof org.bukkit.block.CreatureSpawner spawner) {
                 spawnedType = spawner.getSpawnedType();
             }
-            block.getWorld().dropItemNaturally(block.getLocation(), createSpawnerItem(spawnedType));
+            block.getWorld().dropItemNaturally(block.getLocation(), ChamberManager.createSpawnerItem(plugin, spawnedType));
             event.getPlayer().sendMessage(Component.text("Silk Touch harvested the chamber spawner!", NamedTextColor.LIGHT_PURPLE));
         }
 
@@ -153,18 +153,6 @@ public class ChamberListener implements Listener {
             ChamberManager.configureSpawnerState(plugin, spawner, type);
             spawner.update(true);
         }
-    }
-
-    private org.bukkit.inventory.ItemStack createSpawnerItem(EntityType type) {
-        org.bukkit.inventory.ItemStack item = new org.bukkit.inventory.ItemStack(org.bukkit.Material.SPAWNER);
-        org.bukkit.inventory.meta.ItemMeta meta = item.getItemMeta();
-        if (meta instanceof org.bukkit.inventory.meta.BlockStateMeta blockStateMeta
-                && blockStateMeta.getBlockState() instanceof org.bukkit.block.CreatureSpawner spawnerState) {
-            ChamberManager.configureSpawnerState(plugin, spawnerState, type);
-            blockStateMeta.setBlockState(spawnerState);
-            item.setItemMeta(blockStateMeta);
-        }
-        return item;
     }
 
     private void dressMob(LivingEntity living, ChamberTheme theme) {

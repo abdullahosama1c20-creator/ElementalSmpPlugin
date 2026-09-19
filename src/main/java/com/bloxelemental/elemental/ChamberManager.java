@@ -15,6 +15,8 @@ import org.bukkit.block.CreatureSpawner;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.BlockStateMeta;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.scheduler.BukkitTask;
 
 import java.util.ArrayList;
@@ -372,6 +374,36 @@ public class ChamberManager {
         }
         Boolean tag = spawnerState.getPersistentDataContainer().get(chamberSpawnerKey(plugin), org.bukkit.persistence.PersistentDataType.BOOLEAN);
         return Boolean.TRUE.equals(tag);
+    }
+
+    /**
+     * Builds a fully-configured, tagged spawner item for the given mob type -
+     * shared by Silk Touch harvesting and /element trade so there's only one
+     * place that knows how to make one of these.
+     */
+    public static ItemStack createSpawnerItem(ElementalSMP plugin, EntityType type) {
+        ItemStack item = new ItemStack(Material.SPAWNER);
+        ItemMeta meta = item.getItemMeta();
+        if (meta instanceof BlockStateMeta blockStateMeta && blockStateMeta.getBlockState() instanceof CreatureSpawner spawnerState) {
+            configureSpawnerState(plugin, spawnerState, type);
+            blockStateMeta.setBlockState(spawnerState);
+            blockStateMeta.displayName(Component.text(prettyMobName(type) + " Spawner", NamedTextColor.LIGHT_PURPLE, TextDecoration.BOLD));
+            item.setItemMeta(blockStateMeta);
+        }
+        return item;
+    }
+
+    /** "MAGMA_CUBE" -> "Magma Cube" */
+    public static String prettyMobName(EntityType type) {
+        String[] parts = type.name().split("_");
+        StringBuilder sb = new StringBuilder();
+        for (String part : parts) {
+            if (!sb.isEmpty()) {
+                sb.append(' ');
+            }
+            sb.append(part.charAt(0)).append(part.substring(1).toLowerCase());
+        }
+        return sb.toString();
     }
 
     // ---------------------------------------------------------------------

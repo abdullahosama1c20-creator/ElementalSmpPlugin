@@ -100,16 +100,14 @@ public class ChamberListener implements Listener {
      * spawners specifically: Silk Touch on one of ours gives back a spawner item
      * pre-configured with whatever mob it was set to spawn. Any other spawner on
      * the server (dungeons, player-placed, etc.) is completely untouched by this -
-     * still fully vanilla, still never drops.
+     * still fully vanilla, still never drops. Works on spawners from ANY chamber,
+     * including ones superseded by a newer roll - detection is by a persistent
+     * tag on the block itself, not by whether its chamber is still the active one.
      */
     @EventHandler
     public void onSpawnerBreak(org.bukkit.event.block.BlockBreakEvent event) {
         org.bukkit.block.Block block = event.getBlock();
-        if (block.getType() != org.bukkit.Material.SPAWNER) {
-            return;
-        }
-        ChamberManager chamberManager = plugin.getChamberManager();
-        if (!chamberManager.isSpawnerLocation(block.getLocation())) {
+        if (!ChamberManager.isChamberSpawnerBlock(plugin, block)) {
             return; // not one of ours - leave fully vanilla, including the no-drop rule
         }
 
@@ -127,7 +125,34 @@ public class ChamberListener implements Listener {
             event.getPlayer().sendMessage(Component.text("Silk Touch harvested the chamber spawner!", NamedTextColor.LIGHT_PURPLE));
         }
 
-        chamberManager.removeSpawnerLocation(block.getLocation());
+        plugin.getChamberManager().removeSpawnerLocation(block.getLocation());
+    }
+
+    /**
+     * Safety net for placing a harvested chamber spawner elsewhere: explicitly
+     * re-applies the full spawner configuration (not just the mob type) right
+     * after placement, so it's guaranteed to actually spawn something and stay
+     * tagged as ours, rather than relying entirely on the game's own
+     * item-to-block state transfer.
+     */
+    @EventHandler
+    public void onSpawnerPlace(org.bukkit.event.block.BlockPlaceEvent event) {
+        if (event.getBlock().getType() != org.bukkit.Material.SPAWNER) {
+            return;
+        }
+        org.bukkit.inventory.ItemStack placed = event.getItemInHand();
+        if (!ChamberManager.isChamberSpawnerItem(plugin, placed)) {
+            return;
+        }
+        EntityType type = EntityType.PIG;
+        if (placed.getItemMeta() instanceof org.bukkit.inventory.meta.BlockStateMeta meta
+                && meta.getBlockState() instanceof org.bukkit.block.CreatureSpawner itemSpawner) {
+            type = itemSpawner.getSpawnedType();
+        }
+        if (event.getBlock().getState() instanceof org.bukkit.block.CreatureSpawner spawner) {
+            ChamberManager.configureSpawnerState(plugin, spawner, type);
+            spawner.update(true);
+        }
     }
 
     private org.bukkit.inventory.ItemStack createSpawnerItem(EntityType type) {
@@ -135,7 +160,7 @@ public class ChamberListener implements Listener {
         org.bukkit.inventory.meta.ItemMeta meta = item.getItemMeta();
         if (meta instanceof org.bukkit.inventory.meta.BlockStateMeta blockStateMeta
                 && blockStateMeta.getBlockState() instanceof org.bukkit.block.CreatureSpawner spawnerState) {
-            spawnerState.setSpawnedType(type);
+            ChamberManager.configureSpawnerState(plugin, spawnerState, type);
             blockStateMeta.setBlockState(spawnerState);
             item.setItemMeta(blockStateMeta);
         }

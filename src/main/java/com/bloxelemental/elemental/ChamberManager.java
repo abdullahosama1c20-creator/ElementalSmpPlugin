@@ -12,6 +12,7 @@ import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.Chest;
 import org.bukkit.block.CreatureSpawner;
+import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.scheduler.BukkitTask;
@@ -36,6 +37,7 @@ public class ChamberManager {
 
     private final int worldBound;
     private final long periodTicks;
+    private final long fastRerollTicks;
     private final double eliteChance;
     private final int killsRequiredNormal;
     private final int killsRequiredElite;
@@ -66,6 +68,7 @@ public class ChamberManager {
         this.plugin = plugin;
         this.worldBound = plugin.getConfig().getInt("chambers.world-bound", 1500);
         this.periodTicks = 20L * 60L * plugin.getConfig().getLong("chambers.reroll-interval-minutes", 60L);
+        this.fastRerollTicks = 20L * 60L * plugin.getConfig().getLong("chambers.fast-reroll-minutes", 5L);
         this.eliteChance = plugin.getConfig().getDouble("chambers.elite-chance", 0.25D);
         this.killsRequiredNormal = plugin.getConfig().getInt("chambers.kills-required-normal", 12);
         this.killsRequiredElite = plugin.getConfig().getInt("chambers.kills-required-elite", 20);
@@ -74,7 +77,27 @@ public class ChamberManager {
     }
 
     public void start() {
-        task = Bukkit.getScheduler().runTaskTimer(plugin, this::rollNewChamber, 0L, periodTicks);
+        scheduleNextRoll(0L);
+    }
+
+    private void scheduleNextRoll(long delayTicks) {
+        task = Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            rollNewChamber();
+            scheduleNextRoll(periodTicks);
+        }, delayTicks);
+    }
+
+    /**
+     * Cuts the wait for the next chamber short instead of leaving the world
+     * without an active one until the full interval elapses - called when
+     * the current chamber finishes early, either by being cleared via kill
+     * quota or by having every spawner harvested/broken.
+     */
+    private void triggerFastReroll() {
+        if (task != null) {
+            task.cancel();
+        }
+        scheduleNextRoll(fastRerollTicks);
     }
 
     public void stop() {
@@ -87,7 +110,11 @@ public class ChamberManager {
     }
 
     public void forceReroll() {
+        if (task != null) {
+            task.cancel();
+        }
         rollNewChamber();
+        scheduleNextRoll(periodTicks);
     }
 
     // ---------------------------------------------------------------------
@@ -295,16 +322,56 @@ public class ChamberManager {
         Block block = world.getBlockAt(x, y, z);
         block.setType(Material.SPAWNER);
         if (block.getState() instanceof CreatureSpawner spawner) {
-            spawner.setSpawnedType(theme.mobTypes()[random.nextInt(theme.mobTypes().length)]);
-            spawner.setSpawnCount(1);
-            spawner.setMaxNearbyEntities(6);
-            spawner.setRequiredPlayerRange(16);
-            spawner.setDelay(200);
-            spawner.setMinSpawnDelay(200);
-            spawner.setMaxSpawnDelay(600);
+            EntityType type = theme.mobTypes()[random.nextInt(theme.mobTypes().length)];
+            configureSpawnerState(plugin, spawner, type);
             spawner.update(true);
         }
         spawnerLocations.add(block.getLocation());
+    }
+
+    private static org.bukkit.NamespacedKey chamberSpawnerKey(ElementalSMP plugin) {
+        return new org.bukkit.NamespacedKey(plugin, "chamber_spawner");
+    }
+
+    /**
+     * Shared spawner configuration used both for live in-world chamber
+     * spawners and for harvested spawner items, so the two paths can never
+     * drift out of sync (which is exactly what caused the "harvested spawner
+     * doesn't spawn anything" bug - the item creation code only set the mob
+     * type and skipped everything else a spawner actually needs to function).
+     * Also tags the spawner's own persistent data so it stays identifiable -
+     * and Silk-Touch-harvestable - even after the chamber it came from is no
+     * longer the active one.
+     */
+    public static void configureSpawnerState(ElementalSMP plugin, CreatureSpawner spawner, EntityType type) {
+        spawner.setSpawnedType(type);
+        spawner.setSpawnCount(1);
+        spawner.setMaxNearbyEntities(6);
+        spawner.setRequiredPlayerRange(16);
+        spawner.setDelay(200);
+        spawner.setMinSpawnDelay(200);
+        spawner.setMaxSpawnDelay(600);
+        spawner.getPersistentDataContainer().set(chamberSpawnerKey(plugin), org.bukkit.persistence.PersistentDataType.BOOLEAN, true);
+    }
+
+    /** True for any spawner block tagged as ours, regardless of whether its chamber is still the active one. */
+    public static boolean isChamberSpawnerBlock(ElementalSMP plugin, Block block) {
+        if (block.getType() != Material.SPAWNER || !(block.getState() instanceof CreatureSpawner spawner)) {
+            return false;
+        }
+        Boolean tag = spawner.getPersistentDataContainer().get(chamberSpawnerKey(plugin), org.bukkit.persistence.PersistentDataType.BOOLEAN);
+        return Boolean.TRUE.equals(tag);
+    }
+
+    /** True for a spawner ItemStack carrying our tag (i.e. one harvested from a chamber, ready to be replaced anywhere). */
+    public static boolean isChamberSpawnerItem(ElementalSMP plugin, ItemStack item) {
+        if (item == null || item.getType() != Material.SPAWNER
+                || !(item.getItemMeta() instanceof org.bukkit.inventory.meta.BlockStateMeta meta)
+                || !(meta.getBlockState() instanceof CreatureSpawner spawnerState)) {
+            return false;
+        }
+        Boolean tag = spawnerState.getPersistentDataContainer().get(chamberSpawnerKey(plugin), org.bukkit.persistence.PersistentDataType.BOOLEAN);
+        return Boolean.TRUE.equals(tag);
     }
 
     // ---------------------------------------------------------------------
@@ -348,10 +415,11 @@ public class ChamberManager {
         }
         Component message = Component.text("All spawners in the ", NamedTextColor.LIGHT_PURPLE)
                 .append(Component.text(activeTheme.element().displayName(), activeTheme.element().color(), TextDecoration.BOLD))
-                .append(Component.text(" Chamber are gone - no more mobs will spawn there.", NamedTextColor.LIGHT_PURPLE));
+                .append(Component.text(" Chamber are gone - a new one rolls soon.", NamedTextColor.LIGHT_PURPLE));
         for (Player player : Bukkit.getOnlinePlayers()) {
             player.sendMessage(message);
         }
+        triggerFastReroll();
     }
 
     /**
@@ -439,6 +507,7 @@ public class ChamberManager {
         }
         bossBar.progress(0.0F);
         bossBar.name(Component.text("Chamber cleared - a new one rolls soon.", NamedTextColor.GRAY));
+        triggerFastReroll();
     }
 
     private static final Material[] UNIVERSAL_BONUS_LOOT = {

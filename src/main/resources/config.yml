@@ -4,6 +4,10 @@
 chambers:
   # How often (in minutes) a new Elemental Chamber rolls somewhere in the world.
   reroll-interval-minutes: 60
+  # If the current chamber finishes early (cleared via kills, or every spawner
+  # harvested/broken), the next roll happens after this much shorter wait instead
+  # of leaving the world without an active chamber until the full interval above.
+  fast-reroll-minutes: 5
   # How far from spawn (in blocks, both +/- on X and Z) a chamber can spawn.
   # Shrunk from the original 5000 so chambers are actually findable within a reasonable walk/ride.
   world-bound: 1500

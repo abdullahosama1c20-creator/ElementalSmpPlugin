@@ -96,15 +96,16 @@ public class TradeListener implements Listener {
         infoMeta.displayName(Component.text("How Trading Works", NamedTextColor.YELLOW, TextDecoration.BOLD));
         infoMeta.lore(List.of(
                 Component.text("Place a chamber spawner you own in the", NamedTextColor.GRAY),
-                Component.text("glowing slot, then click any spawner", NamedTextColor.GRAY),
-                Component.text("type below to trade for it, 1-for-1.", NamedTextColor.GRAY)
+                Component.text("empty slot below (the one gap in this row),", NamedTextColor.GRAY),
+                Component.text("then click any spawner type to trade for it.", NamedTextColor.GRAY)
         ));
         ItemStack info = new ItemStack(Material.PAPER);
         info.setItemMeta(infoMeta);
         inventory.setItem(0, info);
 
-        inventory.setItem(INPUT_SLOT, namedItem(Material.LIME_STAINED_GLASS_PANE,
-                Component.text("Place your spawner here", NamedTextColor.GREEN, TextDecoration.BOLD)));
+        inventory.setItem(INPUT_SLOT, null); // deliberately left empty - it's the one open gap among the black filler,
+        // which is its own visual cue. A placeholder item here would just be something the player
+        // has to fight to remove before they can put their own spawner in.
 
         inventory.setItem(WILD_LABEL_SLOT, namedItem(Material.GRASS_BLOCK,
                 Component.text("Wild Spawners", NamedTextColor.GREEN, TextDecoration.BOLD)));
@@ -152,18 +153,34 @@ public class TradeListener implements Listener {
 
     @EventHandler
     public void onClick(InventoryClickEvent event) {
-        if (!(event.getInventory().getHolder() instanceof TradeGuiHolder)) {
+        if (!(event.getView().getTopInventory().getHolder() instanceof TradeGuiHolder)) {
             return;
         }
-        if (event.getRawSlot() == INPUT_SLOT) {
+        if (!(event.getWhoClicked() instanceof Player player)) {
+            return;
+        }
+
+        boolean clickedTop = event.getClickedInventory() != null
+                && event.getClickedInventory().equals(event.getView().getTopInventory());
+
+        if (!clickedTop) {
+            // Click was in the player's OWN inventory - always allow normal management there.
+            // The one exception: don't let shift-click dump some unrelated item into the trade
+            // slot just because it happens to be the only empty one; a valid chamber spawner is
+            // fine and vanilla will naturally route it into that one open gap on its own.
+            if (event.isShiftClick() && !ChamberManager.isChamberSpawnerItem(plugin, event.getCurrentItem())) {
+                event.setCancelled(true);
+            }
+            return;
+        }
+
+        int slot = event.getRawSlot();
+        if (slot == INPUT_SLOT) {
             return; // let the player freely place/remove their own item here
         }
         event.setCancelled(true);
 
-        if (!(event.getWhoClicked() instanceof Player player)) {
-            return;
-        }
-        EntityType target = resolveTarget(event.getRawSlot());
+        EntityType target = resolveTarget(slot);
         if (target == null) {
             return;
         }
@@ -215,7 +232,7 @@ public class TradeListener implements Listener {
             return;
         }
         ItemStack leftover = event.getInventory().getItem(INPUT_SLOT);
-        if (leftover == null || leftover.getType().isAir() || leftover.getType() == Material.LIME_STAINED_GLASS_PANE) {
+        if (leftover == null || leftover.getType().isAir()) {
             return;
         }
         var overflow = player.getInventory().addItem(leftover);
